@@ -53,9 +53,7 @@ Log In
 
           <div class="row" >
             <div class="input-field col s12">
-                <div class="submitt">
-                <input  type="submit"  value="Login" />
-                </div>
+                <button class="btn waves-effect waves-light" type="submit" name="action">Log In</button>
 
 
             </div>
@@ -66,10 +64,14 @@ Log In
         </form>
         <div class="Subtitle">
             <a href="{{url('/Registo' )}}" class="Subtitle" >Registar</a>
+
             </div>
 
 
       </div>
+      <em class="large material-icons">insert_chart
+      <a href="{{ url('/Utilizador/forgotone') }}" > FORGOT PASSWORD</a>
+      </em>
     </div>
       </div>
 @endsection

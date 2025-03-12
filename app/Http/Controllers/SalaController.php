@@ -2,73 +2,101 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\NEWSALA;
 use App\Models\Edificio;
 use App\Models\Sala;
-
+use Barryvdh\DomPDF\PDF as DomPDFPDF;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
-use phpDocumentor\Reflection\PseudoTypes\True_;
+use Barryvdh\DomPDF\Facade as PDF;
+define("DATA_FORMAT","Y-m-d H:i:s");
+define("HOUR_FORMAT","H:i:s");
 
 define("REMAIN", "/Main");
 define("REMAINADMIN", "Admin.AdminMain");
+define("REMAINADMIN2", "/AdminMain");
+/**
+ *  *  class controler sala
+ *     usamos este controller para gerir as funções necessarias para a criação, mostrar, editar ,delete de salas.
+ *
+ * @author <40115@ufp.edu.pt> Ruben Pinto <39836@ufp.edu.pt> Sérgio Sousa  ;
+ */
+
+
+
 class SalaController extends Controller
 {
     /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
+     * Display a listing on a table without pagination, all of salas with the option of make a requisito.
+     * funcao correspodente para a view Main
+     * @return view(REMAIN, ['salas' => $salas],['edificios' => $edificios]);
      */
     public function index()
     {
 
-        session(['Pagenated' => 0]);
-        $salas = Sala::all();
-        $edificios = Edificio::all();
-        return view(REMAIN, ['salas' => $salas],['edificios' => $edificios]);
-
-
+        session(['Pagenated' => 1]);
+        $salas = Sala::sortable()->paginate(5);
+        $edificios = Edificio::sortable()->paginate(5);
+        return view(REMAIN, ['salas' => $salas], ['edificios' => $edificios]);
     }
+      /**
+     * Display a listing on a table with pagination, a limited numere of salas with the option of make a requisito.
+     * @param numero numero de salas para display
+     * @param numeroedificios numero de edificios para dispay se nao for valido chama-se a funcao index
+     * funcao correspodente para a view Main
+     * @return view(REMAIN, ['salas' => $salas],['edificios' => $edificios]);
+     */
     public function index_num($numero,$numeroedificios)
     {
-
        if($numero<0||$numero==null||$numeroedificios<0||$numeroedificios==null){
        $this->index();
        }else{
         session(['Pagenated' => 1]);
-        $salas = Sala::paginate($numero);
-        $edificios = Edificio::paginate($numeroedificios);
+        $salas = Sala::sortable()->paginate($numero);
+        $edificios = Edificio::sortable()->paginate($numeroedificios);
         return view(REMAIN, ['salas' => $salas],['edificios' => $edificios]);
-
-
        }
 
     }
+      /**
+     * Display a listing on a table with pagination, a limited numere of salas with the option of make a requisito.
+     * @param numero numero de salas para display
+     * @param numeroedificios numero de edificios para dispay se nao for valido chama-se a funcao ADMINindex
+     * funcao correspodente para a view AdminMain
+     * @return  view(REMAINADMIN, ['salas' => $salas],['edificios' => $edificios]);
+     */
     public function ADMINindex_num($numero,$numeroedificios)
     {
         if($numero<0||$numero==null||$numeroedificios<0||$numeroedificios==null){
             $this->ADMINindex();
             }else{
                 session(['Pagenated' => 1]);
-             $salas = Sala::paginate($numero, ['*'], 'paramName');
-             $edificios = Edificio::paginate($numeroedificios, ['*'], 'param2Name');
+             $salas = Sala::sortable()->paginate($numero, ['*'], 'paramName');
+             $edificios = Edificio::sortable()->paginate($numeroedificios, ['*'], 'param2Name');
              return view(REMAINADMIN, ['salas' => $salas],['edificios' => $edificios]);
             }
 
     }
+    /**
+     * Display a listing on a table without pagination, all of salas with the option of make a requisito.
+     * funcao correspodente para a view AdminMain
+     * @return view(REMAINADMIN, ['salas' => $salas],['edificios' => $edificios]);
+     */
     public function ADMINindex()
     {
-        session(['Pagenated' => 0]);
-        $salas = Sala::all();
-        $edificios = Edificio::all();
+        session(['Pagenated' => 1]);
+        $salas = Sala::sortable()->paginate(5);
+        $edificios = Edificio::sortable()->paginate(5);
         return view(REMAINADMIN, ['salas' => $salas],['edificios' => $edificios]);
     }
 
 
     /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
+     * private function to create a Sala from Request
+     * @param Request parametro do tipo request para utilizar
+     * @return sala Class sala com a informação para utilizar
      */
     public function create(Request $request)
     {
@@ -84,10 +112,11 @@ return $sala;
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Store a newly created resource in storage com validações normais para a estabilidade e logica da base de dados.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
+     * @param  \Illuminate\Http\Request  $request do view da crição da sala apartir do form method PUT
+     * @return  redirect()->back()->with('popup','Created sucessfully'); return successfull
+     *
      */
     public function store(Request $request)
     {
@@ -114,20 +143,24 @@ return redirect()->back()->withErrors('Piso doesnt exist');
   }
 
 $sala=$this->create($request);
+$this->SendMAIL($sala,1);
+
 $sala->save();
-return redirect()->back()->with('popup','Created sucessfully');
+return redirect()->back(303)->with('popup','Created sucessfully');
 
     }
 
     /**
-     * Display the specified resource.
+     * Display the Information of the requisições of the selected sala atravez do seu identificador unico(id).
      *
-     * @param  \App\Models\Sala  $sala
-     * @return \Illuminate\Http\Response
+     * @param    $id
+     * @return view('sala.Requisito',["requisitos"=>$ed]);
      */
-    public function show(Sala $sala)
+    public function show($id)
     {
+        $ed=DB::table('requisitos')->where('id_Sala',$id)->get();
 
+      return view('sala.Requisito',["requisitos"=>$ed]);
     }
 
     /**
@@ -142,11 +175,11 @@ return redirect()->back()->with('popup','Created sucessfully');
     }
 
     /**
-     * Update the specified resource in storage.
+     * Update the specified resource in storage. apartir da informação da form
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  \App\Models\Sala  $sala
-     * @return \Illuminate\Http\Response
+     * @return redirect(REMAINADMIN)->with('popup','Sala Update');
      */
     public function update(Request $request, $sala)
     {
@@ -163,9 +196,8 @@ return redirect()->back()->with('popup','Created sucessfully');
         $request->only( 'Id_edificio','Piso', 'Type','Area','Descricao');
         $ed=DB::table('salas')->where('id',$sala)->first();
 
-
 if($ed==null ){
-return redirect(REMAINADMIN)->withErrors('Sala not existe or erro nos pisos');
+return redirect(REMAINADMIN2)->withErrors('Sala not existe or erro nos pisos');
 }else{
 if($request->Id_edificio!=null){
 $ed->id_edificio=$request->Id_edificio;
@@ -186,7 +218,8 @@ if($request->Area!=null){
         }
 
     if($this->check($ed,$ed->id_edificio)){
-   return    redirect(REMAINADMIN)->with('popup','Sala Update');
+        $this->SendMAIL($ed,2);
+   return    redirect(REMAINADMIN2,303)->with('popup','Sala Update');
 
     }
 
@@ -197,34 +230,59 @@ if($request->Area!=null){
 
     public function check($ed,$sala){
         $Edificio =DB::table('edificios')->where('id',$sala)->first();
-if($Edificio!=null ){
-    if($Edificio->Piso_min>=$ed->Piso ||$Edificio->Piso_max<=$ed->Piso){
+    if($Edificio->Piso_min<=$ed->Piso && $Edificio->Piso_max>=$ed->Piso){
         DB::update('update salas  set Area = ? , Piso= ? ,id_edificio= ?  where id = ? ',[$ed->Area, $ed->Piso,$ed->id_edificio,$ed->id]);
         return True;
         }
-
-
-}
 
 return False;
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Remove the specified resource from storage apartir do indetificador unico
      *
-     * @param  \App\Models\Sala  $sala
-     * @return \Illuminate\Http\Response
+     * @param  $id identificador unico
+     * @return redirect()->back()->with('popup','Sala Delected'. $id); successfull delete
      */
     public function destroy($id)
     {
-$result =DB::select('select id from salas where id =? ', [$id]);
-if($result==null){
+$aux = DB::table('salas')->where('id',$id)->get();
+if($aux==null){
 
     return redirect()->back()->with('popup','Sala NOT FOUND');
 }
+$g=null;
+foreach($aux as $sala){
+$g=$sala;
+
+}
+$aux2=DB::table('requisitos')->where('id_Sala',$g->id)->get();
+$this->SendMAIL($g,3);
+foreach($aux2 as $requi){
+    DB::delete('delete from requisitos where id = ?', [$requi->id]);
+
+}
+
 DB::delete('delete from salas where id = ?', [$id]);
 
 
-        return redirect()->back()->with('popup','Sala Delected'. $id);
+        return redirect()->back(303)->with('popup','Sala Delected'. $id);
     }
+  /**
+     * Handler of the mail that recebes a Sala and a mode to give the information in email and what time of email it is
+     *
+     * @param  $sala informação da sala para display no email
+     * @param  $mode mode que sera o tipo de mail que ira ser enviado
+     *
+     */
+
+    public function SendMAIL($sala,$mode)
+    {
+     $utils=DB::table('utilizadors')->get();
+       foreach($utils as $util){
+        Mail::to($util->Email)->send(new NEWSALA($sala,$mode));
+       }
+}
+
+
 }
